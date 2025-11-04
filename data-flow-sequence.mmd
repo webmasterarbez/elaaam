@@ -1,0 +1,86 @@
+```mermaid
+sequenceDiagram
+    autonumber
+    participant User
+    participant ElevenLabs
+    participant InitWebhook as Initiation Webhook API
+    participant ToolAPI as Server Tool API
+    participant DB as SQLite Database
+    participant PostWebhook as Post-Call Webhook API
+    participant Worker as Background Worker
+    participant OpenMemory as OpenMemory System
+
+    Note over User,OpenMemory: Phase 1: Conversation Initiation (Pre-Call)
+    
+    User->>ElevenLabs: Initiate call
+    activate ElevenLabs
+    ElevenLabs->>InitWebhook: POST /webhook/conversation-init<br/>{caller_id, agent_id, ...}
+    activate InitWebhook
+    InitWebhook->>DB: Map caller_id → user_id
+    InitWebhook->>OpenMemory: Query top 5 memories<br/>(vector search + scoring)
+    OpenMemory-->>InitWebhook: Return relevant memories
+    InitWebhook-->>ElevenLabs: {<br/>  dynamic_variables: {<br/>    user_id, memory_context, ...<br/>  },<br/>  conversation_config_override<br/>}
+    deactivate InitWebhook
+    Note right of InitWebhook: <2s response time
+    ElevenLabs->>User: Start conversation with context
+    deactivate ElevenLabs
+
+    Note over User,OpenMemory: Phase 2: During Conversation (Real-time Memory Queries)
+    
+    User->>ElevenLabs: "What did I tell you about my CRM?"
+    activate ElevenLabs
+    Note right of ElevenLabs: Agent LLM determines<br/>memory query needed
+    ElevenLabs->>ToolAPI: POST /tools/memory-query<br/>{query: "user CRM system",<br/> user_id: "{{user_id}}"}
+    activate ToolAPI
+    ToolAPI->>DB: Generate embedding
+    ToolAPI->>DB: Vector similarity search
+    ToolAPI->>DB: Single-waypoint expansion
+    DB-->>ToolAPI: Top 3 memories + links
+    ToolAPI->>ToolAPI: Format response + summary
+    ToolAPI->>DB: Log tool invocation
+    ToolAPI-->>ElevenLabs: {<br/>  memories: [...],<br/>  summary: "Uses Salesforce CRM..."<br/>}
+    deactivate ToolAPI
+    Note right of ToolAPI: <500ms response
+    ElevenLabs->>User: "I see you use Salesforce CRM..."
+    deactivate ElevenLabs
+
+    Note over User,OpenMemory: Phase 3: Post-Call (Memory Extraction)
+    
+    User->>ElevenLabs: End conversation
+    activate ElevenLabs
+    ElevenLabs->>PostWebhook: POST /webhook/post-call<br/>{conversation_id, transcript, analysis, ...}
+    activate PostWebhook
+    PostWebhook->>PostWebhook: Verify HMAC signature
+    PostWebhook->>DB: INSERT webhook_events<br/>(status='pending')
+    PostWebhook-->>ElevenLabs: HTTP 200 OK
+    deactivate PostWebhook
+    Note right of PostWebhook: <100ms acknowledgment
+    deactivate ElevenLabs
+
+    Note over Worker,OpenMemory: Async Processing (1-5s)
+    
+    loop Every 500ms
+        Worker->>DB: Poll pending webhook_events
+        activate Worker
+        DB-->>Worker: Pending events (batch of 5)
+        Worker->>DB: UPDATE status='processing'
+        Worker->>DB: BEGIN TRANSACTION
+        Worker->>DB: INSERT conversations + turns
+        Worker->>DB: INSERT conversation_analysis
+        Worker->>OpenMemory: Extract memories via LLM<br/>(classify into sectors)
+        OpenMemory-->>Worker: Extracted memories
+        loop For each memory
+            Worker->>DB: INSERT memories
+            Worker->>DB: Generate + INSERT embeddings
+            Worker->>DB: Find similar (cosine > 0.8)
+            Worker->>DB: INSERT memory_links
+            Worker->>DB: INSERT conversation_memories
+        end
+        Worker->>DB: UPDATE user summary
+        Worker->>DB: COMMIT TRANSACTION
+        Worker->>DB: UPDATE webhook status='completed'
+        deactivate Worker
+    end
+
+    Note over User,OpenMemory: Memory Lifecycle Complete:<br/>Pre-loaded context → Real-time queries → Post-call extraction
+```

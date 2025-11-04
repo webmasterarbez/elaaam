@@ -1,0 +1,125 @@
+```mermaid
+erDiagram
+    %% Integration Layer
+    webhook_events ||--o| conversations : "triggers processing for"
+    webhook_events {
+        INTEGER id PK
+        TEXT event_id UK "ElevenLabs UUID"
+        TEXT event_type "post_call_transcription|audio|failure"
+        JSON payload "Full webhook body"
+        TEXT conversation_id FK
+        TEXT status "pending|processing|completed|failed"
+        INTEGER retry_count
+        TEXT error_message
+        TIMESTAMP created_at
+        TIMESTAMP processed_at
+    }
+
+    %% Conversation Domain
+    conversations ||--o{ conversation_turns : "has many"
+    conversations ||--o| conversation_analysis : "has one"
+    conversations ||--o{ conversation_memories : "links to"
+    conversations ||--o{ tool_invocations : "tracks"
+    conversations {
+        INTEGER id PK
+        TEXT conversation_id UK "ElevenLabs UUID"
+        TEXT agent_id
+        TEXT user_id FK
+        TIMESTAMP start_time
+        TIMESTAMP end_time
+        INTEGER duration_secs
+        TEXT status
+        JSON metadata
+        TIMESTAMP created_at
+    }
+
+    conversation_turns {
+        INTEGER id PK
+        INTEGER conversation_fk FK
+        TEXT role "user|agent"
+        TEXT message
+        INTEGER timestamp "Unix timestamp"
+        INTEGER turn_order
+        TIMESTAMP created_at
+    }
+
+    conversation_analysis {
+        INTEGER id PK
+        INTEGER conversation_fk FK
+        TEXT summary
+        BOOLEAN call_successful
+        JSON evaluation_json
+        JSON data_collection
+        TIMESTAMP created_at
+    }
+
+    tool_invocations {
+        INTEGER id PK
+        INTEGER conversation_fk FK
+        TEXT tool_name
+        JSON request_params
+        JSON response_data
+        INTEGER latency_ms
+        BOOLEAN success
+        TEXT error_message
+        TIMESTAMP timestamp
+    }
+
+    %% Memory Domain
+    users ||--o{ memories : "owns"
+    users ||--o{ conversations : "has"
+    users {
+        TEXT user_id PK
+        TEXT summary "Auto-generated"
+        INTEGER total_memories
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    memories ||--o{ memory_embeddings : "has embeddings in"
+    memories ||--o{ memory_links : "source of"
+    memories ||--o{ memory_links : "target of"
+    memories ||--o{ conversation_memories : "extracted from"
+    memories {
+        INTEGER id PK
+        TEXT user_id FK
+        TEXT content
+        TEXT sector_type "semantic|episodic|procedural|emotional|reflective"
+        REAL salience "0.0-1.0"
+        TIMESTAMP recency
+        REAL decay_rate "0.0-1.0"
+        TEXT state "active|paused|archived"
+        TEXT source_conversation "Optional conv_id"
+        JSON metadata
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    memory_embeddings {
+        INTEGER id PK
+        INTEGER memory_id FK
+        TEXT sector "sector type"
+        BLOB embedding "Serialized vector"
+        TEXT embedding_model
+        INTEGER dimension
+        TIMESTAMP created_at
+    }
+
+    memory_links {
+        INTEGER id PK
+        INTEGER source_memory_id FK
+        INTEGER target_memory_id FK
+        REAL link_weight "0.0-1.0"
+        TEXT link_type "associative|temporal|causal"
+        TIMESTAMP created_at
+    }
+
+    conversation_memories {
+        INTEGER id PK
+        INTEGER conversation_fk FK
+        INTEGER memory_id FK
+        TEXT extraction_type "auto|manual|reinforced"
+        REAL confidence "0.0-1.0"
+        TIMESTAMP created_at
+    }
+```

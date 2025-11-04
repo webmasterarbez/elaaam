@@ -1,0 +1,117 @@
+```mermaid
+graph TB
+    subgraph "User Layer"
+        User[User/Caller]
+        Twilio[Twilio Phone Network]
+    end
+
+    subgraph "ElevenLabs Agents Platform"
+        Agent[ElevenLabs Agent]
+        AgentLLM[Agent LLM<br/>GPT-4o/Claude]
+        WebRTC[WebRTC/WebSocket]
+        
+        Agent --> AgentLLM
+        Agent --> WebRTC
+    end
+
+    subgraph "Your Integration API"
+        LB[Load Balancer<br/>Nginx/Caddy]
+        
+        subgraph "Webhook Handlers"
+            InitHook[Initiation Webhook<br/>/webhook/conversation-init<br/>Target: <2s]
+            PostHook[Post-Call Webhook<br/>/webhook/post-call<br/>Target: <100ms]
+        end
+        
+        subgraph "Server Tools"
+            ToolAPI[Memory Query Tool<br/>/tools/memory-query<br/>Target: <500ms]
+            OtherTools[Other Tools...]
+        end
+        
+        LB --> InitHook
+        LB --> PostHook
+        LB --> ToolAPI
+        LB --> OtherTools
+    end
+
+    subgraph "Background Processing"
+        WorkerPool[Worker Pool<br/>2-3 async workers]
+        WorkerPool -->|Poll every 500ms| Queue
+    end
+
+    subgraph "Data Layer"
+        DB[(SQLite Database<br/>WAL Mode)]
+        
+        subgraph "Tables"
+            Queue[webhook_events<br/>Event Queue]
+            Convs[conversations<br/>conversation_turns<br/>conversation_analysis]
+            Mems[memories<br/>memory_embeddings<br/>memory_links]
+            Junction[conversation_memories<br/>tool_invocations]
+        end
+        
+        DB --> Queue
+        DB --> Convs
+        DB --> Mems
+        DB --> Junction
+    end
+
+    subgraph "OpenMemory Engine"
+        MemExtract[Memory Extraction<br/>LLM-based]
+        VectorSearch[Vector Search<br/>Cosine Similarity]
+        GraphExpand[Graph Expansion<br/>Single-waypoint]
+        Scoring[Composite Scoring<br/>0.6×sim + 0.2×sal<br/>+ 0.1×rec + 0.1×link]
+        
+        VectorSearch --> Scoring
+        GraphExpand --> Scoring
+    end
+
+    subgraph "External Services"
+        EmbedAPI[Embedding API<br/>OpenAI/Local]
+        LLMService[LLM Service<br/>GPT-4o-mini]
+    end
+
+    %% User flows
+    User -->|1. Call| Twilio
+    Twilio -->|Inbound call| Agent
+    Agent -->|Audio| WebRTC
+    WebRTC -->|Audio| User
+
+    %% Phase 1: Initiation
+    Agent -->|A. Initiation request| InitHook
+    InitHook -->|Query memories| VectorSearch
+    VectorSearch -->|Read| Mems
+    InitHook -->|Return dynamic_variables| Agent
+
+    %% Phase 2: Real-time tools
+    AgentLLM -->|B. Tool call during convo| ToolAPI
+    ToolAPI -->|Query| VectorSearch
+    VectorSearch -->|Read| Mems
+    GraphExpand -->|Expand| Mems
+    ToolAPI -->|Response| AgentLLM
+    ToolAPI -->|Log| Junction
+
+    %% Phase 3: Post-call
+    Agent -->|C. Post-call webhook| PostHook
+    PostHook -->|Write| Queue
+    PostHook -->|Immediate 200| Agent
+    
+    WorkerPool -->|Process| Queue
+    WorkerPool -->|Store| Convs
+    WorkerPool -->|Extract| MemExtract
+    MemExtract -->|Use| LLMService
+    MemExtract -->|Generate| EmbedAPI
+    WorkerPool -->|Insert| Mems
+    WorkerPool -->|Link| Junction
+
+    %% Styling
+    classDef webhook fill:#e1f5ff,stroke:#0088cc,stroke-width:2px
+    classDef tool fill:#fff4e6,stroke:#ff9800,stroke-width:2px
+    classDef db fill:#f3e5f5,stroke:#9c27b0,stroke-width:2px
+    classDef worker fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+    classDef memory fill:#fce4ec,stroke:#e91e63,stroke-width:2px
+    
+    class InitHook,PostHook webhook
+    class ToolAPI,OtherTools tool
+    class DB,Queue,Convs,Mems,Junction db
+    class WorkerPool worker
+    class MemExtract,VectorSearch,GraphExpand,Scoring memory
+```
