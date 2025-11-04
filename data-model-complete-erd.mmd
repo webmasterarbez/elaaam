@@ -1,0 +1,121 @@
+```mermaid
+graph TB
+    subgraph "LAYER 3: UI DATA MODELS (Presentation)"
+        UD[UserDashboard<br/>━━━━━━━━━━━━<br/>userId<br/>userName<br/>memoryStats<br/>conversationStats<br/>recentConversations<br/>topMemories]
+
+        CS[ConversationSummary<br/>━━━━━━━━━━━━<br/>conversationId<br/>duration<br/>turnCount<br/>summary<br/>successful<br/>sentiment]
+
+        CD[ConversationDetail<br/>━━━━━━━━━━━━<br/>conversationId<br/>transcript<br/>analysis<br/>toolInvocations<br/>extractedMemories]
+
+        MS[MemorySummary<br/>━━━━━━━━━━━━<br/>memoryId<br/>content<br/>sector<br/>salience<br/>ageDays<br/>state]
+
+        MD[MemoryDetail<br/>━━━━━━━━━━━━<br/>memoryId<br/>content<br/>sector<br/>relatedMemories<br/>sourceConversation]
+
+        MG[MemoryGraph<br/>━━━━━━━━━━━━<br/>userId<br/>nodes: MemoryNode[]<br/>edges: MemoryEdge[]]
+
+        PM[PerformanceMetrics<br/>━━━━━━━━━━━━<br/>webhooks<br/>tools<br/>extraction<br/>conversations]
+
+        MA[MemoryAnalytics<br/>━━━━━━━━━━━━<br/>sectorDistribution<br/>salienceDistribution<br/>ageDistribution<br/>graphMetrics]
+
+        UD -->|contains| CS
+        UD -->|contains| MS
+        CS -->|expands to| CD
+        MS -->|expands to| MD
+        MD -->|visualized in| MG
+    end
+
+    subgraph "LAYER 2: SERVICE MODELS (Business Logic)"
+        WE[WebhookEvent<br/>━━━━━━━━━━━━<br/>event_id<br/>event_type<br/>status<br/>payload<br/>━━━━━━━━━━━━<br/>mark_processing()<br/>mark_completed()<br/>mark_failed()<br/>should_retry()]
+
+        CONV[Conversation<br/>━━━━━━━━━━━━<br/>conversation_id<br/>user_id<br/>status<br/>turns: List<br/>analysis: Object<br/>━━━━━━━━━━━━<br/>is_active()<br/>turn_count()<br/>mark_done()]
+
+        CT[ConversationTurn<br/>━━━━━━━━━━━━<br/>role<br/>message<br/>timestamp<br/>turn_order<br/>━━━━━━━━━━━━<br/>formatted_timestamp()]
+
+        CA[ConversationAnalysis<br/>━━━━━━━━━━━━<br/>summary<br/>call_successful<br/>evaluation_json<br/>━━━━━━━━━━━━<br/>action_items()<br/>sentiment()]
+
+        TI[ToolInvocation<br/>━━━━━━━━━━━━<br/>tool_name<br/>latency_ms<br/>success<br/>━━━━━━━━━━━━<br/>is_slow()<br/>latency_seconds()]
+
+        U[User<br/>━━━━━━━━━━━━<br/>user_id<br/>summary<br/>total_memories<br/>memories: List<br/>━━━━━━━━━━━━<br/>has_memories()<br/>increment_memories()]
+
+        M[Memory<br/>━━━━━━━━━━━━<br/>content<br/>sector_type<br/>salience<br/>recency<br/>state<br/>embeddings: List<br/>links: List<br/>━━━━━━━━━━━━<br/>is_active()<br/>age_days()<br/>decayed_salience()<br/>reinforce()<br/>archive()]
+
+        ME[MemoryEmbedding<br/>━━━━━━━━━━━━<br/>embedding: bytes<br/>model<br/>dimension<br/>━━━━━━━━━━━━<br/>vector()<br/>cosine_similarity()]
+
+        ML[MemoryLink<br/>━━━━━━━━━━━━<br/>source_memory_id<br/>target_memory_id<br/>link_weight<br/>link_type<br/>━━━━━━━━━━━━<br/>is_strong_link()]
+
+        CM[ConversationMemory<br/>━━━━━━━━━━━━<br/>conversation_fk<br/>memory_id<br/>extraction_type<br/>confidence<br/>━━━━━━━━━━━━<br/>is_high_confidence()]
+
+        WE -.->|triggers| CONV
+        CONV -->|has many| CT
+        CONV -->|has one| CA
+        CONV -->|tracks| TI
+        CONV -->|belongs to| U
+        U -->|owns| M
+        M -->|has| ME
+        M -->|links to| ML
+        CONV -.->|extracts| CM
+        M -.->|referenced in| CM
+    end
+
+    subgraph "LAYER 1: DATABASE SCHEMA (Persistence)"
+        WEV[(webhook_events<br/>━━━━━━━━━━━━<br/>🔑 id<br/>🔒 event_id UNIQUE<br/>event_type<br/>payload JSON<br/>conversation_id FK<br/>status<br/>retry_count<br/>error_message<br/>created_at<br/>processed_at)]
+
+        CONVS[(conversations<br/>━━━━━━━━━━━━<br/>🔑 id<br/>🔒 conversation_id UNIQUE<br/>agent_id<br/>user_id FK<br/>start_time<br/>end_time<br/>duration_secs<br/>status<br/>metadata JSON<br/>created_at)]
+
+        CTS[(conversation_turns<br/>━━━━━━━━━━━━<br/>🔑 id<br/>conversation_fk FK<br/>role<br/>message<br/>timestamp<br/>turn_order<br/>created_at)]
+
+        CAS[(conversation_analysis<br/>━━━━━━━━━━━━<br/>🔑 id<br/>conversation_fk FK UNIQUE<br/>summary<br/>call_successful<br/>evaluation_json JSON<br/>data_collection JSON<br/>created_at)]
+
+        TIS[(tool_invocations<br/>━━━━━━━━━━━━<br/>🔑 id<br/>conversation_fk FK<br/>tool_name<br/>request_params JSON<br/>response_data JSON<br/>latency_ms<br/>success<br/>error_message<br/>timestamp)]
+
+        US[(users<br/>━━━━━━━━━━━━<br/>🔑 user_id<br/>summary<br/>total_memories<br/>created_at<br/>updated_at)]
+
+        MEM[(memories<br/>━━━━━━━━━━━━<br/>🔑 id<br/>user_id FK<br/>content<br/>sector_type<br/>salience<br/>recency<br/>decay_rate<br/>state<br/>source_conversation<br/>metadata JSON<br/>created_at<br/>updated_at)]
+
+        MES[(memory_embeddings<br/>━━━━━━━━━━━━<br/>🔑 id<br/>memory_id FK<br/>sector<br/>embedding BLOB<br/>embedding_model<br/>dimension<br/>created_at)]
+
+        MLS[(memory_links<br/>━━━━━━━━━━━━<br/>🔑 id<br/>source_memory_id FK<br/>target_memory_id FK<br/>link_weight<br/>link_type<br/>created_at)]
+
+        CMS[(conversation_memories<br/>━━━━━━━━━━━━<br/>🔑 id<br/>conversation_fk FK<br/>memory_id FK<br/>extraction_type<br/>confidence<br/>created_at)]
+
+        WEV -->|triggers processing for| CONVS
+        CONVS -->|has many| CTS
+        CONVS -->|has one| CAS
+        CONVS -->|tracks| TIS
+        CONVS -->|belongs to| US
+        US -->|owns| MEM
+        MEM -->|has embeddings| MES
+        MEM -->|source of| MLS
+        MEM -->|target of| MLS
+        CONVS -->|links to| CMS
+        MEM -->|extracted from| CMS
+    end
+
+    %% Cross-layer mappings
+    WE -.->|maps to| WEV
+    CONV -.->|maps to| CONVS
+    CT -.->|maps to| CTS
+    CA -.->|maps to| CAS
+    TI -.->|maps to| TIS
+    U -.->|maps to| US
+    M -.->|maps to| MEM
+    ME -.->|maps to| MES
+    ML -.->|maps to| MLS
+    CM -.->|maps to| CMS
+
+    CS -.->|aggregates from| CONV
+    CD -.->|aggregates from| CONV
+    MS -.->|aggregates from| M
+    MD -.->|aggregates from| M
+    UD -.->|aggregates from| U
+    PM -.->|aggregates from| TIS
+    MA -.->|aggregates from| MEM
+
+    classDef layer1 fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    classDef layer2 fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef layer3 fill:#fff3e0,stroke:#e65100,stroke-width:2px
+
+    class WEV,CONVS,CTS,CAS,TIS,US,MEM,MES,MLS,CMS layer1
+    class WE,CONV,CT,CA,TI,U,M,ME,ML,CM layer2
+    class UD,CS,CD,MS,MD,MG,PM,MA layer3
+```

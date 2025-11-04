@@ -1,0 +1,57 @@
+```mermaid
+graph TB
+    subgraph External["🌐 EXTERNAL SYSTEMS"]
+        EL[ElevenLabs API]
+        UI[Frontend UI / Dashboard]
+    end
+
+    subgraph Layer3["📱 LAYER 3: UI DATA MODELS (Presentation Layer)"]
+        direction TB
+        L3_Models["<b>UI Models (TypeScript)</b><br/>━━━━━━━━━━━━━━━━━━━━━━━<br/>• UserDashboard<br/>• ConversationSummary<br/>• ConversationDetail<br/>• MemorySummary<br/>• MemoryDetail<br/>• MemoryGraph<br/>• PerformanceMetrics<br/>• MemoryAnalytics"]
+
+        L3_Purpose["<b>Purpose:</b><br/>• Simplified, denormalized views<br/>• Pre-aggregated data<br/>• Optimized for rendering<br/>• Frontend-friendly formats"]
+
+        L3_Transforms["<b>Transformations:</b><br/>• Flatten nested objects<br/>• Aggregate statistics<br/>• Format timestamps (ISO 8601)<br/>• Calculate derived metrics<br/>• Pre-join related data"]
+    end
+
+    subgraph Layer2["⚙️ LAYER 2: SERVICE MODELS (Business Logic Layer)"]
+        direction TB
+        L2_Models["<b>Domain Models (Python/Pydantic)</b><br/>━━━━━━━━━━━━━━━━━━━━━━━<br/>• WebhookEvent<br/>• Conversation<br/>• ConversationTurn<br/>• ConversationAnalysis<br/>• ToolInvocation<br/>• User<br/>• Memory<br/>• MemoryEmbedding<br/>• MemoryLink<br/>• ConversationMemory"]
+
+        L2_Purpose["<b>Purpose:</b><br/>• Rich domain models<br/>• Business logic methods<br/>• Validation rules<br/>• Computed properties<br/>• Relationship management"]
+
+        L2_Operations["<b>Operations:</b><br/>• Composite scoring<br/>• Memory decay calculations<br/>• Vector similarity search<br/>• Graph traversal<br/>• State transitions<br/>• Webhook processing"]
+    end
+
+    subgraph Layer1["💾 LAYER 1: DATABASE SCHEMA (Persistence Layer)"]
+        direction TB
+        L1_Tables["<b>SQLite Tables</b><br/>━━━━━━━━━━━━━━━━━━━━━━━<br/><b>Integration:</b><br/>• webhook_events<br/><br/><b>Conversation:</b><br/>• conversations<br/>• conversation_turns<br/>• conversation_analysis<br/>• tool_invocations<br/><br/><b>Memory:</b><br/>• users<br/>• memories<br/>• memory_embeddings<br/>• memory_links<br/>• conversation_memories"]
+
+        L1_Purpose["<b>Purpose:</b><br/>• Normalized storage<br/>• Data integrity (FK constraints)<br/>• Efficient queries (indexes)<br/>• ACID transactions<br/>• Persistence"]
+
+        L1_Features["<b>Features:</b><br/>• Foreign key cascades<br/>• Unique constraints<br/>• JSON columns<br/>• BLOB for embeddings<br/>• Composite indexes<br/>• WAL mode for concurrency"]
+    end
+
+    %% External to Layer 3
+    EL -->|Webhook Requests| Layer3
+    UI <-->|REST/GraphQL API| Layer3
+
+    %% Layer 3 to Layer 2
+    Layer3 -->|"<b>Request Flow ⬇️</b><br/>Parse & Validate<br/>DTOs (Request objects)"| Layer2
+    Layer2 -->|"<b>Response Flow ⬆️</b><br/>Serialize & Transform<br/>DTOs (Response objects)"| Layer3
+
+    %% Layer 2 to Layer 1
+    Layer2 -->|"<b>Write Operations ⬇️</b><br/>INSERT, UPDATE, DELETE<br/>ORM/SQL Queries"| Layer1
+    Layer1 -->|"<b>Read Operations ⬆️</b><br/>SELECT queries<br/>Raw result sets"| Layer2
+
+    %% Styling
+    classDef externalStyle fill:#fff9c4,stroke:#f57f17,stroke-width:3px,color:#000
+    classDef layer3Style fill:#fff3e0,stroke:#e65100,stroke-width:3px
+    classDef layer2Style fill:#f3e5f5,stroke:#4a148c,stroke-width:3px
+    classDef layer1Style fill:#e1f5ff,stroke:#01579b,stroke-width:3px
+
+    class External,EL,UI externalStyle
+    class Layer3,L3_Models,L3_Purpose,L3_Transforms layer3Style
+    class Layer2,L2_Models,L2_Purpose,L2_Operations layer2Style
+    class Layer1,L1_Tables,L1_Purpose,L1_Features layer1Style
+```
