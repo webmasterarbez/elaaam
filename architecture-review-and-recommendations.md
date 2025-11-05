@@ -274,10 +274,11 @@ class RedisEmbeddingCache:
         info = self.client.info('stats')
         memory = self.client.info('memory')
 
+        total = info.get('keyspace_hits', 0) + info.get('keyspace_misses', 0)
         return {
             'keyspace_hits': info.get('keyspace_hits', 0),
             'keyspace_misses': info.get('keyspace_misses', 0),
-            'hit_rate': info.get('keyspace_hits', 0) / max(1, info.get('keyspace_hits', 0) + info.get('keyspace_misses', 0)),
+            'hit_rate': info.get('keyspace_hits', 0) / max(1, total),
             'used_memory_mb': memory.get('used_memory', 0) / 1024 / 1024,
             'evicted_keys': info.get('evicted_keys', 0)
         }
