@@ -608,7 +608,7 @@ def query_memories_for_initiation(user_id: str, query: str, limit: int = 5):
     Fast memory query for conversation initiation.
     Target: <500ms for top-5 memories
     """
-    # Generate embedding for query (LRU cached)
+    
     query_embedding = generate_embedding(query)  # Uses LRU cache - see architecture-review-and-recommendations.md
     
     # Vector similarity with composite scoring
