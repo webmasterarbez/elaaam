@@ -187,7 +187,10 @@ async def post_call_webhook(request: Request):
 - [ ] Memory extraction success rate
 - [ ] Tool call frequency and patterns
 - [ ] Alerts configured (slow responses, high queue depth, extraction failures)
-- [ ] Caching layer for frequent memory queries (optional, for scale)
+- [ ] **Embedding cache (LRU)** - REQUIRED for performance (see architecture-review-and-recommendations.md)
+  - [ ] Cache hit rate monitoring (target: 30-50%)
+  - [ ] Cache size monitoring
+  - [ ] Eviction rate tracking
 
 ---
 
@@ -334,6 +337,7 @@ Then responds with the retrieved information.
 ## Resources
 
 - [Full Architecture Document](./openmemory-elevenlabs-architecture-corrected.md)
+- **[Architecture Review and Recommendations](./architecture-review-and-recommendations.md)** - Performance optimizations, LRU cache implementation
 - [Database ERD](./database-erd.mmd)
 - [Data Flow Sequence Diagram](./data-flow-sequence.mmd)
 - [System Architecture Diagram](./system-architecture.mmd)
