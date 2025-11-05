@@ -283,15 +283,24 @@ class RedisEmbeddingCache:
         }
 
 # Usage
+import openai
 redis_cache = RedisEmbeddingCache(max_memory="100mb", ttl_hours=24)
 
-def generate_embedding(text: str) -> list[float]:
-    cached = redis_cache.get(text)
+def _generate_embedding_uncached(text: str, model: str = "text-embedding-3-small") -> list[float]:
+    """Generate embedding using OpenAI API (no caching)."""
+    response = openai.Embedding.create(
+        input=text,
+        model=model
+    )
+    return response['data'][0]['embedding']
+
+def generate_embedding(text: str, model: str = "text-embedding-3-small") -> list[float]:
+    cached = redis_cache.get(text, model)
     if cached:
         return cached
 
-    embedding = _generate_embedding_uncached(text)
-    redis_cache.put(text, embedding)
+    embedding = _generate_embedding_uncached(text, model)
+    redis_cache.put(text, embedding, model)
     return embedding
 ```
 
